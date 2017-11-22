@@ -9,13 +9,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <MacTypes.h>
 
 typedef char VertexType;  //顶点类型(可自定义)
 typedef int EdgeType;  //边上的权值类型(可自定义)
 typedef int Status;
-#define TRUE 1;
-#define FALSE 0;
+typedef int Boolean;
+#define TRUE 1
+#define FALSE 0
+#define OK 1
+#define ERROE 0
+#define MAXSIZE 10 //存储空间初始分配量
 
 //边表结点
 typedef struct EdgeNode {
@@ -30,7 +33,7 @@ typedef struct EdgeNode {
 typedef struct VertexNode {
     VertexType data; //顶点域，存储顶点信息
     EdgeNode *firstEdge; //边表头指针
-} VertexNode, AdjList[100];
+} VertexNode, AdjList[10];
 
 //图的邻接表存储结构
 typedef struct {
@@ -38,10 +41,33 @@ typedef struct {
     int numNodes, numEdges; //图中当前顶点数和边数
 } GraphAdjList;
 
+//邻接表的广度优先遍历算法需要利用到的队列结构(循环队列的顺序存储结构)
+typedef struct {
+    int data[10];
+    int front;  //头指针
+    int rear;   //尾指针，若队列不为空，指向队尾元素的下一个位置
+} Queue;
+
 
 void printVertexNode(GraphAdjList *G);
 
 void createALGraph(GraphAdjList *G);
+
+Status judgeEdge(int i, int j, GraphAdjList *G);
+
+void DFS(GraphAdjList *G, int i);
+
+void DFSTraverse(GraphAdjList G);
+
+void BFSTraverse(GraphAdjList G);
+
+Status initQueue(Queue *Q);
+
+Status QueueEmpty(Queue Q);
+
+Status EnQueue(Queue *Q, int e);
+
+Status DeQueue(Queue *Q, int *e);
 
 
 /**
@@ -140,14 +166,157 @@ Status judgeEdge(int i, int j, GraphAdjList *G) {
 }
 
 
+//访问标志的数组
+Boolean visited[100];
+
+/**
+ * function:邻接表的深度优先递归算法
+ * @param G
+ */
+void DFS(GraphAdjList *G, int i) {
+
+    EdgeNode *p;
+    visited[i] = TRUE;
+    //打印顶点
+    printf("%c", G->adjList[i].data);
+    p = G->adjList[i].firstEdge;
+    while (p) {
+        if (!visited[p->adjvex]) {
+            DFS(G, p->adjvex);      //对未访问的邻接顶点递归调用进行访问
+        }
+        p = p->next;
+    }
+}
 
 
+/**
+ * function:邻接表的深度优先遍历操作
+ * @param G
+ */
+void DFSTraverse(GraphAdjList G) {
+
+    int i;
+
+    //初始所有顶点都是未访问状态
+    for (i = 0; i < G.numNodes; i++) {
+        visited[i] = FALSE;
+    }
 
 
+    for (i = 0; i < G.numNodes; i++) {
+        if (!visited[i]) {
+            //对未访问过的顶点调用DFS，若是连通图，则只会执行一次
+            DFS(&G, i);
+        }
+    }
+
+}
 
 
+/**
+ * function:邻接表的广度优先遍历算法
+ * @param G
+ */
+void BFSTraverse(GraphAdjList G) {
+
+    int i;
+    EdgeNode *p;
+    Queue Q;
+
+    //初始所有顶点都是未访问状态
+    for (i = 0; i < G.numNodes; i++) {
+        visited[i] = FALSE;
+    }
+
+    //初始化队列
+    initQueue(&Q);
+    for (i = 0; i < G.numNodes; i++) {
+
+        //如果未被访问过
+        if (!visited[i]) {
+            visited[i] = TRUE;
+            printf("%c", G.adjList[i].data); //打印顶点
+            EnQueue(&Q, i);
+            while (!QueueEmpty(Q)) {
+                DeQueue(&Q, &i);
+                p = G.adjList[i].firstEdge; //找到出队列的那个元素顶点的边表链表头指针
+                while (p) {
+
+                    //若该顶点没有被访问过
+                    if (!visited[p->adjvex]) {
+                        visited[p->adjvex] = TRUE;
+                        printf("%c ", G.adjList[p->adjvex].data); //打印该顶点
+                        EnQueue(&Q, p->adjvex);  //将此顶点进入队列
+                    }
+                    p = p->next; //指针指向下一个邻接点
+                }
+            }
+        }
+    }
+}
+
+/**
+ * function:初始化一个空队列
+ * @param Q
+ * @return
+ */
+Status initQueue(Queue *Q) {
+    Q->front = 0;
+    Q->rear = 0;
+    return OK;
+}
 
 
+/**
+ * function:若队列Q为空队列，则返回TRUE，否则返回FALSE
+ * @param Q
+ * @return
+ */
+Status QueueEmpty(Queue Q) {
+
+    //队列为空的标志
+    if (Q.front == Q.rear) {
+        return TRUE;
+    } else {
+        return FALSE;
+    }
+
+}
+
+
+/**
+ * function:若队列未满，则插入元素e为Q新的队尾元素
+ * @param Q
+ * @param e
+ * @return
+ */
+Status EnQueue(Queue *Q, int e) {
+
+    //队列满的判断(保留一个元素空间，也就是说，当队列满时，数组中还有一个空闲单元。此时就认为队列已经满了)
+    if ((Q->rear + 1) % MAXSIZE == Q->front)
+        return ERROE;
+
+    Q->data[Q->rear] = e; //将元素e赋值给队尾
+    Q->rear = (Q->rear + 1) % MAXSIZE; //rear指针向后移一位置.若到最后则转到数组头部o
+    return OK;
+}
+
+
+/**
+ * function:若队列不为空，则删除Q中队头元素，用e返回其值
+ * @param Q
+ * @param e
+ * @return
+ */
+Status DeQueue(Queue *Q, int *e) {
+
+    //队列空的判断
+    if (Q->front == Q->rear)
+        return ERROE;
+    *e = Q->data[Q->front];  //将队头元素赋值给e
+    Q->front = (Q->front + 1) % MAXSIZE; //front指针向后移一位。若到最后则会转到数组头部
+    return OK;
+}
 
 
 
